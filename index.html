@@ -10,7 +10,7 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background-color: #222; /* Fundo escuro para destacar a câmera */
+            background-color: #ffffff; /* MUDOU AQUI: Fundo geral branco */
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -70,7 +70,7 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            background-color: #000;
+            background-color: #ffffff; /* MUDOU AQUI: Fundo da área de trabalho branco */
         }
 
         /* --- CÂMERA DE FUNDO --- */
@@ -181,7 +181,7 @@
         // Variáveis de estado
         let isLocked = false;
         let isDragging = false;
-        let cameraStream = null; // Guarda o fluxo da câmera
+        let cameraStream = null; 
         
         // Transformações
         let scale = 1;
@@ -199,35 +199,37 @@
         }
 
         // ==========================================
-        // 0. CONTROLE DA CÂMERA (Novo)
+        // CONTROLE DA CÂMERA
         // ==========================================
         btnCamera.addEventListener('click', async function() {
             if (cameraStream) {
-                // Se a câmera já está ligada, vamos desligá-la
+                // Desligar câmera
                 const tracks = cameraStream.getTracks();
-                tracks.forEach(track => track.stop()); // Para o uso de hardware
+                tracks.forEach(track => track.stop());
                 cameraStream = null;
                 cameraFeed.style.display = 'none';
+                workspace.style.backgroundColor = '#ffffff'; // Garante fundo branco ao desligar
                 btnCamera.innerHTML = '📷 Ligar Câmera';
                 btnCamera.style.backgroundColor = '#00c4cc';
             } else {
-                // Tenta ligar a câmera traseira ('environment')
+                // Ligar câmera
                 try {
                     cameraStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment' }
                     });
                     cameraFeed.srcObject = cameraStream;
-                    cameraFeed.style.display = 'block'; // Mostra o vídeo
+                    cameraFeed.style.display = 'block'; 
+                    workspace.style.backgroundColor = '#000000'; // Fundo preto atrás do vídeo fica melhor
                     btnCamera.innerHTML = '🚫 Desligar Câmera';
-                    btnCamera.style.backgroundColor = '#dc3545'; // Fica vermelho
+                    btnCamera.style.backgroundColor = '#dc3545';
                 } catch (err) {
-                    alert('Erro ao acessar a câmera. Verifique as permissões ou se está usando HTTPS. Erro: ' + err.message);
+                    alert('Erro ao acessar a câmera. Verifique as permissões. Erro: ' + err.message);
                 }
             }
         });
 
         // ==========================================
-        // 1. CARREGAR IMAGEM E OUTROS CONTROLES
+        // CARREGAR IMAGEM E CONTROLES
         // ==========================================
         uploadInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -354,3 +356,4 @@
     </script>
 </body>
 </html>
+
