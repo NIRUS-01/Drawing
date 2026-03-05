@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visualizador AR - Imagem sobre a Câmera</title>
+    <style>
+        /* --- ESTILOS (CSS) --- */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #222; /* Fundo escuro para destacar a câmera */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            overscroll-behavior: none; 
+            touch-action: none;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button, input[type="file"] {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #e9ecef;
+        }
+
+        /* Botão da câmera com cor de destaque */
+        #btn-camera {
+            background-color: #00c4cc;
+            color: white;
+            border: none;
+        }
+        #btn-camera:hover {
+            background-color: #009aa1;
+        }
+
+        .workspace {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* --- CÂMERA DE FUNDO --- */
+        #camera-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Faz o vídeo preencher a tela toda sem achatar */
+            z-index: 0; /* Fica atrás de tudo */
+            display: none; /* Escondido até o usuário ligar */
+            pointer-events: none; /* Ignora toques, deixando passar para a imagem */
+        }
+
+        /* --- CAIXA ESTILO CANVA --- */
+        #caixa-imagem {
+            display: none;
+            position: relative;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-drag: none;
+            transform-origin: center center;
+            border: 2px dashed #00c4cc; /* Borda tracejada para dar ar de edição */
+            z-index: 1; /* Fica na frente da câmera */
+        }
+
+        #caixa-imagem:active {
+            cursor: grabbing;
+        }
+
+        .ponto {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background-color: white;
+            border: 2px solid #00c4cc;
+            border-radius: 50%;
+            pointer-events: none; 
+        }
+
+        .pt-tl { top: -9px; left: -9px; }    
+        .pt-tr { top: -9px; right: -9px; }   
+        .pt-bl { bottom: -9px; left: -9px; } 
+        .pt-br { bottom: -9px; right: -9px; }
+
+        #caixa-imagem.locked {
+            border-color: transparent;
+            cursor: not-allowed !important;
+        }
+        
+        #caixa-imagem.locked .ponto {
+            display: none;
+        }
+
+        #imagem-alvo {
+            display: block;
+            max-width: 80vw;
+            max-height: 70vh;
+            pointer-events: none; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="control-group">
+            <button id="btn-camera">📷 Ligar Câmera</button>
+        </div>
+
+        <div class="control-group">
+            <input type="file" id="upload-imagem" accept="image/*" title="Carregar Imagem">
+        </div>
+
+        <div class="control-group">
+            <label for="slider-opacidade">Opacidade:</label>
+            <input type="range" id="slider-opacidade" min="0" max="100" value="100">
+        </div>
+
+        <div class="control-group">
+            <button id="btn-cadeado">🔓</button>
+        </div>
+    </div>
+
+    <div class="workspace" id="workspace">
+        <video id="camera-feed" autoplay playsinline></video>
+
+        <div id="caixa-imagem">
+            <img id="imagem-alvo" src="" alt="Imagem carregada" draggable="false">
+            <div class="ponto pt-tl"></div>
+            <div class="ponto pt-tr"></div>
+            <div class="ponto pt-bl"></div>
+            <div class="ponto pt-br"></div>
+        </div>
+    </div>
+
+    <script>
+        // Referências
+        const btnCamera = document.getElementById('btn-camera');
+        const cameraFeed = document.getElementById('camera-feed');
+        const uploadInput = document.getElementById('upload-imagem');
+        const sliderOpacidade = document.getElementById('slider-opacidade');
+        const btnCadeado = document.getElementById('btn-cadeado');
+        const caixaImagem = document.getElementById('caixa-imagem');
+        const imagemAlvo = document.getElementById('imagem-alvo');
+        const workspace = document.getElementById('workspace');
+
+        // Variáveis de estado
+        let isLocked = false;
+        let isDragging = false;
+        let cameraStream = null; // Guarda o fluxo da câmera
+        
+        // Transformações
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let rotation = 0; 
+        
+        // Controles de Toque/Mouse
+        let startX = 0, startY = 0;
+        let initialPinchDistance = 0, initialScale = 1;
+        let initialAngle = 0, initialRotation = 0;
+
+        function atualizarTransformacao() {
+            caixaImagem.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale}) rotate(${rotation}deg)`;
+        }
+
+        // ==========================================
+        // 0. CONTROLE DA CÂMERA (Novo)
+        // ==========================================
+        btnCamera.addEventListener('click', async function() {
+            if (cameraStream) {
+                // Se a câmera já está ligada, vamos desligá-la
+                const tracks = cameraStream.getTracks();
+                tracks.forEach(track => track.stop()); // Para o uso de hardware
+                cameraStream = null;
+                cameraFeed.style.display = 'none';
+                btnCamera.innerHTML = '📷 Ligar Câmera';
+                btnCamera.style.backgroundColor = '#00c4cc';
+            } else {
+                // Tenta ligar a câmera traseira ('environment')
+                try {
+                    cameraStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment' }
+                    });
+                    cameraFeed.srcObject = cameraStream;
+                    cameraFeed.style.display = 'block'; // Mostra o vídeo
+                    btnCamera.innerHTML = '🚫 Desligar Câmera';
+                    btnCamera.style.backgroundColor = '#dc3545'; // Fica vermelho
+                } catch (err) {
+                    alert('Erro ao acessar a câmera. Verifique as permissões ou se está usando HTTPS. Erro: ' + err.message);
+                }
+            }
+        });
+
+        // ==========================================
+        // 1. CARREGAR IMAGEM E OUTROS CONTROLES
+        // ==========================================
+        uploadInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imagemAlvo.src = event.target.result;
+                    caixaImagem.style.display = 'inline-block';
+                    
+                    scale = 1; translateX = 0; translateY = 0; rotation = 0;
+                    sliderOpacidade.value = 100; imagemAlvo.style.opacity = 1;
+                    atualizarTransformacao();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        sliderOpacidade.addEventListener('input', function(e) {
+            imagemAlvo.style.opacity = e.target.value / 100;
+        });
+
+        btnCadeado.addEventListener('click', function() {
+            isLocked = !isLocked;
+            if (isLocked) {
+                btnCadeado.innerHTML = '🔒';
+                caixaImagem.classList.add('locked');
+            } else {
+                btnCadeado.innerHTML = '🔓';
+                caixaImagem.classList.remove('locked');
+            }
+        });
+
+        // ==========================================
+        // MOUSE (Computador)
+        // ==========================================
+        caixaImagem.addEventListener('mousedown', function(e) {
+            if (isLocked) return;
+            e.preventDefault();
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isDragging || isLocked) return;
+            e.preventDefault();
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            atualizarTransformacao();
+        });
+
+        window.addEventListener('mouseup', function() { isDragging = false; });
+
+        workspace.addEventListener('wheel', function(e) {
+            if (isLocked || caixaImagem.style.display === 'none') return;
+            e.preventDefault();
+            const zoomSpeed = 0.05;
+            if (e.deltaY < 0) scale += zoomSpeed; else scale -= zoomSpeed;
+            scale = Math.min(Math.max(0.1, scale), 5);
+            atualizarTransformacao();
+        }, { passive: false });
+
+        // ==========================================
+        // TOQUE MULTIPLO (Celular)
+        // ==========================================
+        function getPinchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function getAngle(touches) {
+            const dx = touches[1].clientX - touches[0].clientX;
+            const dy = touches[1].clientY - touches[0].clientY;
+            return Math.atan2(dy, dx) * (180 / Math.PI); 
+        }
+
+        caixaImagem.addEventListener('touchstart', function(e) {
+            if (isLocked) return;
+            
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            } 
+            else if (e.touches.length === 2) {
+                isDragging = false; 
+                initialPinchDistance = getPinchDistance(e.touches);
+                initialScale = scale;
+                initialAngle = getAngle(e.touches);
+                initialRotation = rotation;
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', function(e) {
+            if (isLocked) return;
+
+            if (e.touches.length === 1 && isDragging) {
+                translateX = e.touches[0].clientX - startX;
+                translateY = e.touches[0].clientY - startY;
+                atualizarTransformacao();
+            } 
+            else if (e.touches.length === 2) {
+                const currentPinchDistance = getPinchDistance(e.touches);
+                const zoomFactor = currentPinchDistance / initialPinchDistance;
+                scale = Math.min(Math.max(0.1, initialScale * zoomFactor), 5);
+
+                const currentAngle = getAngle(e.touches);
+                rotation = initialRotation + (currentAngle - initialAngle);
+
+                atualizarTransformacao();
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', function(e) {
+            if (e.touches.length === 0) {
+                isDragging = false;
+            } else if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - translateX;
+                startY = e.touches[0].clientY - translateY;
+            }
+        });
+    </script>
+</body>
+</html>
