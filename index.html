@@ -10,7 +10,7 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background-color: #ffffff; /* MUDOU AQUI: Fundo geral branco */
+            background-color: #ffffff;
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -30,6 +30,7 @@
             border-bottom: 1px solid #ddd;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             z-index: 10;
+            transition: all 0.3s ease; /* Transição suave ao sumir */
         }
 
         .control-group {
@@ -46,7 +47,7 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
         }
 
         button:hover {
@@ -70,7 +71,7 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            background-color: #ffffff; /* MUDOU AQUI: Fundo da área de trabalho branco */
+            background-color: #ffffff;
         }
 
         /* --- CÂMERA DE FUNDO --- */
@@ -132,6 +133,29 @@
             max-height: 70vh;
             pointer-events: none; 
         }
+
+        /* --- ESTILOS PARA MODO REVISÃO (NOVO) --- */
+        /* Classe aplicada no botão do cadeado quando ele flutua */
+        .btn-cadeado-review {
+            position: fixed !important;
+            top: 10px;
+            right: 10px;
+            z-index: 1000 !important; /* Fica acima de tudo */
+            margin: 0 !important;
+            border-radius: 50% !important; /* Botão redondo */
+            padding: 12px !important;
+            font-size: 18px !important;
+            /* Fundo semi-transparente para ficar visível sobre qualquer cor */
+            background-color: rgba(255, 255, 255, 0.6) !important;
+            backdrop-filter: blur(2px); /* Efeito de vidro */
+            border: 1px solid #ccc !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        /* Ajuste do cursor quando bloqueado flutuando */
+        .btn-cadeado-review.locked-btn {
+            cursor: pointer !important; /* Permite clicar para desbloquear */
+        }
     </style>
 </head>
 <body>
@@ -169,6 +193,7 @@
 
     <script>
         // Referências
+        const toolbar = document.querySelector('.toolbar'); // Referência para a barra inteira
         const btnCamera = document.getElementById('btn-camera');
         const cameraFeed = document.getElementById('camera-feed');
         const uploadInput = document.getElementById('upload-imagem');
@@ -208,7 +233,7 @@
                 tracks.forEach(track => track.stop());
                 cameraStream = null;
                 cameraFeed.style.display = 'none';
-                workspace.style.backgroundColor = '#ffffff'; // Garante fundo branco ao desligar
+                workspace.style.backgroundColor = '#ffffff'; 
                 btnCamera.innerHTML = '📷 Ligar Câmera';
                 btnCamera.style.backgroundColor = '#00c4cc';
             } else {
@@ -219,7 +244,7 @@
                     });
                     cameraFeed.srcObject = cameraStream;
                     cameraFeed.style.display = 'block'; 
-                    workspace.style.backgroundColor = '#000000'; // Fundo preto atrás do vídeo fica melhor
+                    workspace.style.backgroundColor = '#000000'; 
                     btnCamera.innerHTML = '🚫 Desligar Câmera';
                     btnCamera.style.backgroundColor = '#dc3545';
                 } catch (err) {
@@ -251,14 +276,32 @@
             imagemAlvo.style.opacity = e.target.value / 100;
         });
 
+        // ==========================================
+        // SISTEMA DE BLOQUEIO E MODO REVISÃO (MODIFICADO)
+        // ==========================================
         btnCadeado.addEventListener('click', function() {
             isLocked = !isLocked;
+            
             if (isLocked) {
+                // --- BLOQUEANDO E ATIVANDO MODO REVISÃO ---
                 btnCadeado.innerHTML = '🔒';
                 caixaImagem.classList.add('locked');
+                
+                // NOVO: Esconder barra de ferramentas
+                toolbar.style.display = 'none';
+                
+                // NOVO: Estilizar botão para flutuar no canto superior direito
+                btnCadeado.classList.add('btn-cadeado-review', 'locked-btn');
             } else {
+                // --- DESBLOQUEANDO E VOLTANDO AO NORMAL ---
                 btnCadeado.innerHTML = '🔓';
                 caixaImagem.classList.remove('locked');
+                
+                // NOVO: Mostrar barra de ferramentas de volta
+                toolbar.style.display = 'flex'; // ou '' para padrão
+                
+                // NOVO: Remover estilos flutuantes do botão
+                btnCadeado.classList.remove('btn-cadeado-review', 'locked-btn');
             }
         });
 
@@ -356,4 +399,3 @@
     </script>
 </body>
 </html>
-
