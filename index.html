@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visualizador AR - Imagem sobre a Câmera</title>
+    <title>Visualizador AR - Interface Limpa</title>
     <style>
         /* --- ESTILOS (CSS) --- */
         body {
@@ -19,51 +19,6 @@
             touch-action: none;
         }
 
-        .toolbar {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #ddd;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 10;
-            transition: all 0.3s ease; /* Transição suave ao sumir */
-        }
-
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        button, input[type="file"] {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background-color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            background-color: #e9ecef;
-        }
-
-        /* Botão da câmera com cor de destaque */
-        #btn-camera {
-            background-color: #00c4cc;
-            color: white;
-            border: none;
-        }
-        #btn-camera:hover {
-            background-color: #009aa1;
-        }
-
         .workspace {
             flex-grow: 1;
             position: relative;
@@ -74,20 +29,76 @@
             background-color: #ffffff;
         }
 
-        /* --- CÂMERA DE FUNDO --- */
         #camera-feed {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Faz o vídeo preencher a tela toda sem achatar */
-            z-index: 0; /* Fica atrás de tudo */
-            display: none; /* Escondido até o usuário ligar */
-            pointer-events: none; /* Ignora toques, deixando passar para a imagem */
+            object-fit: cover;
+            z-index: 0;
+            display: none;
+            pointer-events: none;
         }
 
-        /* --- CAIXA ESTILO CANVA --- */
+        /* --- BOTÕES FLUTUANTES --- */
+        .btn-flutuante {
+            position: fixed;
+            z-index: 1000;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(5px);
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .btn-flutuante:active {
+            transform: scale(0.9);
+        }
+
+        /* Posições dos botões */
+        #btn-camera { top: 20px; left: 20px; font-size: 20px; }
+        #btn-upload-label { top: 20px; right: 20px; }
+        #btn-cadeado { bottom: 20px; right: 20px; }
+
+        /* Esconde o input de arquivo original feio */
+        #upload-imagem { display: none; }
+
+        /* --- PAINEL DE OPACIDADE FLUTUANTE --- */
+        #painel-opacidade {
+            display: none; /* Escondido por padrão */
+            position: fixed;
+            bottom: 80px; /* Fica acima do cadeado */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        #painel-opacidade label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* --- CAIXA DA IMAGEM --- */
         #caixa-imagem {
             display: none;
             position: relative;
@@ -95,8 +106,8 @@
             user-select: none;
             -webkit-user-drag: none;
             transform-origin: center center;
-            border: 2px dashed #00c4cc; /* Borda tracejada para dar ar de edição */
-            z-index: 1; /* Fica na frente da câmera */
+            border: 2px dashed #00c4cc;
+            z-index: 1;
         }
 
         #caixa-imagem:active {
@@ -133,54 +144,24 @@
             max-height: 70vh;
             pointer-events: none; 
         }
-
-        /* --- ESTILOS PARA MODO REVISÃO (NOVO) --- */
-        /* Classe aplicada no botão do cadeado quando ele flutua */
-        .btn-cadeado-review {
-            position: fixed !important;
-            top: 10px;
-            right: 10px;
-            z-index: 1000 !important; /* Fica acima de tudo */
-            margin: 0 !important;
-            border-radius: 50% !important; /* Botão redondo */
-            padding: 12px !important;
-            font-size: 18px !important;
-            /* Fundo semi-transparente para ficar visível sobre qualquer cor */
-            background-color: rgba(255, 255, 255, 0.6) !important;
-            backdrop-filter: blur(2px); /* Efeito de vidro */
-            border: 1px solid #ccc !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        
-        /* Ajuste do cursor quando bloqueado flutuando */
-        .btn-cadeado-review.locked-btn {
-            cursor: pointer !important; /* Permite clicar para desbloquear */
-        }
     </style>
 </head>
 <body>
 
-    <div class="toolbar">
-        <div class="control-group">
-            <button id="btn-camera">📷 Ligar Câmera</button>
-        </div>
-
-        <div class="control-group">
-            <input type="file" id="upload-imagem" accept="image/*" title="Carregar Imagem">
-        </div>
-
-        <div class="control-group">
-            <label for="slider-opacidade">Opacidade:</label>
-            <input type="range" id="slider-opacidade" min="0" max="100" value="100">
-        </div>
-
-        <div class="control-group">
-            <button id="btn-cadeado">🔓</button>
-        </div>
-    </div>
-
     <div class="workspace" id="workspace">
         <video id="camera-feed" autoplay playsinline></video>
+
+        <div id="btn-camera" class="btn-flutuante">📷</div>
+
+        <label for="upload-imagem" id="btn-upload-label" class="btn-flutuante">☁️</label>
+        <input type="file" id="upload-imagem" accept="image/*">
+
+        <div id="btn-cadeado" class="btn-flutuante">🔓</div>
+
+        <div id="painel-opacidade">
+            <label for="slider-opacidade">Transparência</label>
+            <input type="range" id="slider-opacidade" min="0" max="100" value="100">
+        </div>
 
         <div id="caixa-imagem">
             <img id="imagem-alvo" src="" alt="Imagem carregada" draggable="false">
@@ -192,52 +173,50 @@
     </div>
 
     <script>
-        // Referências
-        const toolbar = document.querySelector('.toolbar'); // Referência para a barra inteira
         const btnCamera = document.getElementById('btn-camera');
         const cameraFeed = document.getElementById('camera-feed');
         const uploadInput = document.getElementById('upload-imagem');
+        const btnUploadLabel = document.getElementById('btn-upload-label');
         const sliderOpacidade = document.getElementById('slider-opacidade');
+        const painelOpacidade = document.getElementById('painel-opacidade');
         const btnCadeado = document.getElementById('btn-cadeado');
         const caixaImagem = document.getElementById('caixa-imagem');
         const imagemAlvo = document.getElementById('imagem-alvo');
         const workspace = document.getElementById('workspace');
 
-        // Variáveis de estado
         let isLocked = false;
         let isDragging = false;
         let cameraStream = null; 
         
-        // Transformações
         let scale = 1;
         let translateX = 0;
         let translateY = 0;
         let rotation = 0; 
         
-        // Controles de Toque/Mouse
         let startX = 0, startY = 0;
         let initialPinchDistance = 0, initialScale = 1;
         let initialAngle = 0, initialRotation = 0;
+        
+        // Variáveis para detectar se foi um "clique" rápido ou um "arrasto" na imagem
+        let clickStartX = 0, clickStartY = 0;
 
         function atualizarTransformacao() {
             caixaImagem.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale}) rotate(${rotation}deg)`;
         }
 
         // ==========================================
-        // CONTROLE DA CÂMERA
+        // CÂMERA
         // ==========================================
         btnCamera.addEventListener('click', async function() {
             if (cameraStream) {
-                // Desligar câmera
                 const tracks = cameraStream.getTracks();
                 tracks.forEach(track => track.stop());
                 cameraStream = null;
                 cameraFeed.style.display = 'none';
                 workspace.style.backgroundColor = '#ffffff'; 
-                btnCamera.innerHTML = '📷 Ligar Câmera';
-                btnCamera.style.backgroundColor = '#00c4cc';
+                btnCamera.innerHTML = '📷';
+                btnCamera.style.backgroundColor = 'rgba(255, 255, 255, 0.85)';
             } else {
-                // Ligar câmera
                 try {
                     cameraStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment' }
@@ -245,16 +224,16 @@
                     cameraFeed.srcObject = cameraStream;
                     cameraFeed.style.display = 'block'; 
                     workspace.style.backgroundColor = '#000000'; 
-                    btnCamera.innerHTML = '🚫 Desligar Câmera';
-                    btnCamera.style.backgroundColor = '#dc3545';
+                    btnCamera.innerHTML = '🚫';
+                    btnCamera.style.backgroundColor = 'rgba(255, 200, 200, 0.9)';
                 } catch (err) {
-                    alert('Erro ao acessar a câmera. Verifique as permissões. Erro: ' + err.message);
+                    alert('Erro ao acessar a câmera. ' + err.message);
                 }
             }
         });
 
         // ==========================================
-        // CARREGAR IMAGEM E CONTROLES
+        // UPLOAD & OPACIDADE
         // ==========================================
         uploadInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -276,37 +255,44 @@
             imagemAlvo.style.opacity = e.target.value / 100;
         });
 
+        // Esconder opacidade ao clicar fora da imagem
+        workspace.addEventListener('mousedown', function(e) {
+            if (e.target === workspace || e.target === cameraFeed) {
+                painelOpacidade.style.display = 'none';
+            }
+        });
+        workspace.addEventListener('touchstart', function(e) {
+            if (e.target === workspace || e.target === cameraFeed) {
+                painelOpacidade.style.display = 'none';
+            }
+        });
+
         // ==========================================
-        // SISTEMA DE BLOQUEIO E MODO REVISÃO (MODIFICADO)
+        // CADEADO
         // ==========================================
         btnCadeado.addEventListener('click', function() {
             isLocked = !isLocked;
             
             if (isLocked) {
-                // --- BLOQUEANDO E ATIVANDO MODO REVISÃO ---
                 btnCadeado.innerHTML = '🔒';
                 caixaImagem.classList.add('locked');
                 
-                // NOVO: Esconder barra de ferramentas
-                toolbar.style.display = 'none';
-                
-                // NOVO: Estilizar botão para flutuar no canto superior direito
-                btnCadeado.classList.add('btn-cadeado-review', 'locked-btn');
+                // Esconde a nuvem, a câmera e a opacidade
+                btnUploadLabel.style.display = 'none';
+                btnCamera.style.display = 'none';
+                painelOpacidade.style.display = 'none';
             } else {
-                // --- DESBLOQUEANDO E VOLTANDO AO NORMAL ---
                 btnCadeado.innerHTML = '🔓';
                 caixaImagem.classList.remove('locked');
                 
-                // NOVO: Mostrar barra de ferramentas de volta
-                toolbar.style.display = 'flex'; // ou '' para padrão
-                
-                // NOVO: Remover estilos flutuantes do botão
-                btnCadeado.classList.remove('btn-cadeado-review', 'locked-btn');
+                // Volta a mostrar a nuvem e a câmera
+                btnUploadLabel.style.display = 'flex';
+                btnCamera.style.display = 'flex';
             }
         });
 
         // ==========================================
-        // MOUSE (Computador)
+        // EVENTOS DE MOUSE (PC)
         // ==========================================
         caixaImagem.addEventListener('mousedown', function(e) {
             if (isLocked) return;
@@ -314,6 +300,10 @@
             isDragging = true;
             startX = e.clientX - translateX;
             startY = e.clientY - translateY;
+            
+            // Registra onde o clique começou para abrir a opacidade depois
+            clickStartX = e.clientX;
+            clickStartY = e.clientY;
         });
 
         window.addEventListener('mousemove', function(e) {
@@ -324,7 +314,18 @@
             atualizarTransformacao();
         });
 
-        window.addEventListener('mouseup', function() { isDragging = false; });
+        window.addEventListener('mouseup', function(e) {
+            if (isDragging) {
+                isDragging = false;
+                
+                // Calcula se o mouse moveu pouco (foi um clique) ou muito (foi um arrasto)
+                const moveDist = Math.hypot(e.clientX - clickStartX, e.clientY - clickStartY);
+                if (moveDist < 10 && !isLocked) {
+                    // Abre o painel de opacidade
+                    painelOpacidade.style.display = 'block';
+                }
+            }
+        });
 
         workspace.addEventListener('wheel', function(e) {
             if (isLocked || caixaImagem.style.display === 'none') return;
@@ -336,14 +337,13 @@
         }, { passive: false });
 
         // ==========================================
-        // TOQUE MULTIPLO (Celular)
+        // EVENTOS DE TOQUE (CELULAR)
         // ==========================================
         function getPinchDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
             const dy = touches[0].clientY - touches[1].clientY;
             return Math.sqrt(dx * dx + dy * dy);
         }
-
         function getAngle(touches) {
             const dx = touches[1].clientX - touches[0].clientX;
             const dy = touches[1].clientY - touches[0].clientY;
@@ -357,6 +357,10 @@
                 isDragging = true;
                 startX = e.touches[0].clientX - translateX;
                 startY = e.touches[0].clientY - translateY;
+                
+                // Registra onde o toque começou
+                clickStartX = e.touches[0].clientX;
+                clickStartY = e.touches[0].clientY;
             } 
             else if (e.touches.length === 2) {
                 isDragging = false; 
@@ -369,7 +373,6 @@
 
         window.addEventListener('touchmove', function(e) {
             if (isLocked) return;
-
             if (e.touches.length === 1 && isDragging) {
                 translateX = e.touches[0].clientX - startX;
                 translateY = e.touches[0].clientY - startY;
@@ -382,14 +385,22 @@
 
                 const currentAngle = getAngle(e.touches);
                 rotation = initialRotation + (currentAngle - initialAngle);
-
                 atualizarTransformacao();
             }
         }, { passive: false });
 
         window.addEventListener('touchend', function(e) {
-            if (e.touches.length === 0) {
+            if (e.touches.length === 0 && isDragging) {
                 isDragging = false;
+                
+                // Como não há mais dedos, pegamos a coordenada do dedo que saiu
+                const touch = e.changedTouches[0];
+                const moveDist = Math.hypot(touch.clientX - clickStartX, touch.clientY - clickStartY);
+                
+                // Se moveu quase nada, significa que foi um "Tap" (toque rápido)
+                if (moveDist < 10 && !isLocked) {
+                    painelOpacidade.style.display = 'block';
+                }
             } else if (e.touches.length === 1) {
                 isDragging = true;
                 startX = e.touches[0].clientX - translateX;
