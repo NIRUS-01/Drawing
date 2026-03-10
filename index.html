@@ -70,14 +70,13 @@
         #btn-upload-label { top: 20px; right: 20px; }
         #btn-cadeado { bottom: 20px; right: 20px; }
 
-        /* Esconde o input de arquivo original feio */
         #upload-imagem { display: none; }
 
         /* --- PAINEL DE OPACIDADE FLUTUANTE --- */
         #painel-opacidade {
-            display: none; /* Escondido por padrão */
+            display: none; 
             position: fixed;
-            bottom: 80px; /* Fica acima do cadeado */
+            bottom: 80px; 
             left: 50%;
             transform: translateX(-50%);
             background-color: rgba(255, 255, 255, 0.9);
@@ -197,7 +196,6 @@
         let initialPinchDistance = 0, initialScale = 1;
         let initialAngle = 0, initialRotation = 0;
         
-        // Variáveis para detectar se foi um "clique" rápido ou um "arrasto" na imagem
         let clickStartX = 0, clickStartY = 0;
 
         function atualizarTransformacao() {
@@ -255,7 +253,6 @@
             imagemAlvo.style.opacity = e.target.value / 100;
         });
 
-        // Esconder opacidade ao clicar fora da imagem
         workspace.addEventListener('mousedown', function(e) {
             if (e.target === workspace || e.target === cameraFeed) {
                 painelOpacidade.style.display = 'none';
@@ -277,7 +274,6 @@
                 btnCadeado.innerHTML = '🔒';
                 caixaImagem.classList.add('locked');
                 
-                // Esconde a nuvem, a câmera e a opacidade
                 btnUploadLabel.style.display = 'none';
                 btnCamera.style.display = 'none';
                 painelOpacidade.style.display = 'none';
@@ -285,7 +281,6 @@
                 btnCadeado.innerHTML = '🔓';
                 caixaImagem.classList.remove('locked');
                 
-                // Volta a mostrar a nuvem e a câmera
                 btnUploadLabel.style.display = 'flex';
                 btnCamera.style.display = 'flex';
             }
@@ -300,8 +295,6 @@
             isDragging = true;
             startX = e.clientX - translateX;
             startY = e.clientY - translateY;
-            
-            // Registra onde o clique começou para abrir a opacidade depois
             clickStartX = e.clientX;
             clickStartY = e.clientY;
         });
@@ -317,11 +310,8 @@
         window.addEventListener('mouseup', function(e) {
             if (isDragging) {
                 isDragging = false;
-                
-                // Calcula se o mouse moveu pouco (foi um clique) ou muito (foi um arrasto)
                 const moveDist = Math.hypot(e.clientX - clickStartX, e.clientY - clickStartY);
                 if (moveDist < 10 && !isLocked) {
-                    // Abre o painel de opacidade
                     painelOpacidade.style.display = 'block';
                 }
             }
@@ -357,8 +347,6 @@
                 isDragging = true;
                 startX = e.touches[0].clientX - translateX;
                 startY = e.touches[0].clientY - translateY;
-                
-                // Registra onde o toque começou
                 clickStartX = e.touches[0].clientX;
                 clickStartY = e.touches[0].clientY;
             } 
@@ -379,12 +367,28 @@
                 atualizarTransformacao();
             } 
             else if (e.touches.length === 2) {
+                // Zoom
                 const currentPinchDistance = getPinchDistance(e.touches);
                 const zoomFactor = currentPinchDistance / initialPinchDistance;
                 scale = Math.min(Math.max(0.1, initialScale * zoomFactor), 5);
 
+                // Rotação com "Efeito Ímã" (Snap to Grid) a cada 90 graus
                 const currentAngle = getAngle(e.touches);
-                rotation = initialRotation + (currentAngle - initialAngle);
+                let rawRotation = initialRotation + (currentAngle - initialAngle);
+                
+                // Encontra qual é o múltiplo de 90 mais próximo (ex: 0, 90, 180, 270)
+                const closest90 = Math.round(rawRotation / 90) * 90;
+                
+                // Se o ângulo atual estiver a menos de 8 graus de diferença do múltiplo de 90,
+                // ele "trava" no ângulo reto. Se não, ele gira livremente.
+                const snapThreshold = 8; // Sensibilidade magnética (em graus)
+                
+                if (Math.abs(rawRotation - closest90) <= snapThreshold) {
+                    rotation = closest90;
+                } else {
+                    rotation = rawRotation;
+                }
+
                 atualizarTransformacao();
             }
         }, { passive: false });
@@ -392,12 +396,8 @@
         window.addEventListener('touchend', function(e) {
             if (e.touches.length === 0 && isDragging) {
                 isDragging = false;
-                
-                // Como não há mais dedos, pegamos a coordenada do dedo que saiu
                 const touch = e.changedTouches[0];
                 const moveDist = Math.hypot(touch.clientX - clickStartX, touch.clientY - clickStartY);
-                
-                // Se moveu quase nada, significa que foi um "Tap" (toque rápido)
                 if (moveDist < 10 && !isLocked) {
                     painelOpacidade.style.display = 'block';
                 }
